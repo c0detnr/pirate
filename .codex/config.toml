@@ -1,0 +1,10 @@
+# Codex şablonu: mevcut config.toml ile ilgili alanları birleştirin.
+model = "gpt-6-astra"
+model_reasoning_effort = "medium"
+
+[agents]
+enabled = true
+# Ana yönetici hariç aynı oturumdaki eşzamanlı alt ajan üst sınırı.
+max_concurrent_threads_per_session = 2
+default_subagent_model = "gpt-6.1-sol"
+default_subagent_reasoning_effort = "medium"

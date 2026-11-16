@@ -1,0 +1,11 @@
+{
+  "/home/mami/Projects/pirate/.agents/skills/devret/SKILL.md": "83515bc6ebf9d1e8788aa54e28d5ae421877bb02707dd513cd1ac2a8f11e4c6c",
+  "/home/mami/Projects/pirate/.agents/skills/devret/references/examples.md": "4d6b9faa15a7ffebd97523c085fef70897c42cb9afc2cfa3c781f8d1a6650b0e",
+  "/home/mami/Projects/pirate/.claude/skills/devret/SKILL.md": "b7d7c952e6893f4315b2157d5203a8d098138e5e578973c02744e720fff6c857",
+  "/home/mami/Projects/pirate/.codex/agents/devret-critic.toml": "01e063a54a37ffa132a46e7660163175c7ccf95ea00c994b3ea91a80a4de6985",
+  "/home/mami/Projects/pirate/.codex/agents/devret-designer.toml": "48ea2b89df47c634b9ad8c7c3852216bab14d752c0f1e1c1dfb32942bfdfe04a",
+  "/home/mami/Projects/pirate/.codex/agents/devret-helper.toml": "24e191c858bf2e641e3adbc6ddb0cb8656c966f1d3a3ab43d201112fc74875bf",
+  "/home/mami/Projects/pirate/.codex/agents/devret-implementer.toml": "0b3d830ad7726a02ed34826f161c3c03ec78df4210b6717a3d3546a06a1dfdb3",
+  "/home/mami/Projects/pirate/AGENTS.md#codex": "1df371d60d58c2872fe08264ef3273b17202c13a9d27ac612eced0aed73efaee",
+  "/home/mami/Projects/pirate/CLAUDE.md#claude": "faa7cae0313e58ec03aa6bb894d632106cc7e15fe02802f451363ab7f0694f9d"
+}
