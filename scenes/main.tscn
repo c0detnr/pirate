@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
 [ext_resource type="Shader" uid="uid://dn85x8meemsgx" path="res://shaders/water.gdshader" id="3"]
 [ext_resource type="Script" uid="uid://cy5cmdfduk5yu" path="res://scripts/main.gd" id="4"]
+[ext_resource type="Shader" uid="uid://bvpdoak2jcq5d" path="res://shaders/vignette.gdshader" id="6"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial"]
 sky_top_color = Color(0.19, 0.46, 0.65, 1)
@@ -17,12 +18,20 @@ sky_material = SubResource("SkyMaterial")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_color = Color(0.62, 0.77, 0.89, 1)
-ambient_light_energy = 0.65
+ambient_light_color = Color(0.66, 0.64, 0.75, 1)
+ambient_light_energy = 0.42
 tonemap_mode = 2
+ssao_enabled = true
+ssao_radius = 0.7
+ssao_intensity = 0.35
+glow_enabled = true
+glow_intensity = 0.18
 fog_enabled = true
-fog_light_color = Color(0.57, 0.76, 0.82, 1)
-fog_density = 0.0018
+fog_light_color = Color(0.82, 0.73, 0.57, 1)
+fog_density = 0.0025
+fog_sky_affect = 0.12
+adjustment_enabled = true
+adjustment_saturation = 1.06
 
 [sub_resource type="ShaderMaterial" id="Water"]
 render_priority = 0
@@ -31,6 +40,10 @@ shader_parameter/wave_a = Vector4(0, 0, 0, 0)
 shader_parameter/wave_b = Vector4(0, 0, 0, 0)
 shader_parameter/wave_c = Vector4(0, 0, 0, 0)
 shader_parameter/ocean_time = 0.0
+shader_parameter/ship_position = Vector3(0, 0, 0)
+shader_parameter/ship_aft = Vector2(0, 1)
+shader_parameter/ship_speed = 0.0
+shader_parameter/foam_enabled = true
 
 [sub_resource type="PlaneMesh" id="SeaMesh"]
 size = Vector2(600, 600)
@@ -43,6 +56,9 @@ albedo_color = Color(0.68, 0.55, 0.32, 1)
 [sub_resource type="StandardMaterial3D" id="Grass"]
 albedo_color = Color(0.2, 0.36, 0.19, 1)
 
+[sub_resource type="ShaderMaterial" id="VignetteMaterial"]
+shader = ExtResource("6")
+
 [node name="Main" type="Node3D" unique_id=1912394898]
 script = ExtResource("4")
 
@@ -52,11 +68,13 @@ environment = SubResource("Environment")
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=609470859]
 transform = Transform3D(0.8480481, 0.3545852, -0.39380676, 0, 0.7431448, 0.6691306, 0.52991927, -0.56745493, 0.63022256, 0, 0, 0)
 light_color = Color(1, 0.91, 0.74, 1)
-light_energy = 1.4
+light_energy = 1.15
 shadow_enabled = true
+shadow_blur = 0.7
+directional_shadow_max_distance = 85.0
 
 [node name="Sea" type="MeshInstance3D" parent="." unique_id=467142163]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.10378456, -0.74628043, 0.25089896)
+transform = Transform3D(0.9997635, -0.021353798, 0.0041240165, 0.021339966, 0.9997666, 0.0033689216, -0.0041949945, -0.0032801172, 0.9999858, -0.06308317, -1.5107388, 0.30279648)
 material_override = SubResource("Water")
 cast_shadow = 0
 mesh = SubResource("SeaMesh")
@@ -115,3 +133,15 @@ theme_override_font_sizes/font_size = 28
 text = "·"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="Vignette" type="CanvasLayer" parent="." unique_id=947245484]
+layer = -1
+
+[node name="Wash" type="ColorRect" parent="Vignette" unique_id=1560256695]
+material = SubResource("VignetteMaterial")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
