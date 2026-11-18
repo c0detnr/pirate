@@ -135,6 +135,21 @@ func run() -> void:
         "rudder changes heading while moving")
     check(stayed_on_deck and drift < 0.05,
         "moving/turning passenger 10 s full local drift=%.5f m" % drift)
+    # Jumping on a moving, turning ship must not leave the player behind.
+    await place(ship.SPAWN_LOCAL)
+    var jump_start := ship.to_local(player.global_position)
+    Input.action_press("jump")
+    await frames(2)
+    Input.action_release("jump")
+    var rose := false
+    var jump_drift := 0.0
+    for i in 60:
+        await frames(1)
+        var point := ship.to_local(player.global_position)
+        rose = rose or point.y > jump_start.y + 0.4
+        jump_drift = maxf(jump_drift, Vector2(point.x - jump_start.x, point.z - jump_start.z).length())
+    check(rose and jump_drift < 0.25 and player.is_on_floor(),
+        "jump on moving ship speed=%.1f drift=%.3f m" % [ship.speed, jump_drift])
     ship.steering_input = 0.0
     ship.rudder = 0.0
     ship.speed = 0.0
@@ -168,7 +183,7 @@ func run() -> void:
     var hub_center := ship.to_local(hub.to_global(hub.get_aabb().get_center()))
     var spoke_start := wheel.transform
     Input.action_press("move_right")
-    await frames(120)
+    await frames(60) # Tam dümen çarkı tam 360° çevirir; ara açıda ölç.
     Input.action_release("move_right")
     check(player.global_position.distance_to(ship.get_helm_stand_position()) < 0.001 and ship.rudder > 0.5,
         "helm locks feet and A/D steers")

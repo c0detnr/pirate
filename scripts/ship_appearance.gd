@@ -3,8 +3,16 @@ extends RefCounted
 const TOON = preload("res://shaders/toon_ship.gdshader")
 const SAIL = preload("res://shaders/sail.gdshader")
 const INK = preload("res://shaders/ink_outline.gdshader")
+const InkPostScript = preload("res://scripts/ink_post.gd")
+
+# Drawn-finish quality. 0 removes the corresponding shader work entirely.
+const HATCH_STRENGTH := 1.0
+const GRAIN_STRENGTH := 1.0
+const THIN_INK_TAG := 0.35
 
 static func apply(ship: Node3D) -> void:
+    # Inverted-hull contours only where the screen-space ink pass cannot run.
+    var hull_contours := not InkPostScript.is_supported()
     for child in ship.get_node("Model").find_children("*", "MeshInstance3D", true, false):
         var part := child as MeshInstance3D
         if part.mesh == null or part.name == "ShipCollider":
@@ -16,7 +24,7 @@ static func apply(ship: Node3D) -> void:
             thin = thin or str(part.name).contains(token)
         for surface in part.mesh.get_surface_count():
             var original := part.get_active_material(surface) as StandardMaterial3D
-            if original == null:
+            if original == null or original.resource_name == "LanternGlass":
                 continue
             var material := ShaderMaterial.new()
             if str(part.name).begins_with("Sail_"):
@@ -36,7 +44,11 @@ static func apply(ship: Node3D) -> void:
                 "Sail": kind = 4
                 "Iron", "Gold": kind = 5
             material.set_shader_parameter("surface_kind", kind)
-            if not thin and original.resource_name != "Sail" and original.resource_name != "Rope":
+            var fine_line: bool = thin or original.resource_name == "Rope"
+            material.set_shader_parameter("hatch_strength", 0.0 if fine_line else HATCH_STRENGTH)
+            material.set_shader_parameter("grain_strength", GRAIN_STRENGTH)
+            material.set_shader_parameter("ink_tag", THIN_INK_TAG if fine_line else 1.0)
+            if hull_contours and not thin and original.resource_name != "Sail" and original.resource_name != "Rope":
                 var ink := ShaderMaterial.new()
                 ink.shader = INK
                 ink.set_shader_parameter("mesh_center", part.get_aabb().get_center())
@@ -45,6 +57,8 @@ static func apply(ship: Node3D) -> void:
 
 static func _sail_material(ship: Node3D, part: MeshInstance3D, material: ShaderMaterial) -> void:
     material.shader = SAIL
+    material.set_shader_parameter("hatch_strength", HATCH_STRENGTH)
+    material.set_shader_parameter("grain_strength", GRAIN_STRENGTH)
     material.set_shader_parameter("furl", 1.0)
     material.set_shader_parameter("fullness", 1.0)
     var kind := 1 if str(part.name).contains("Gaff") else (2 if str(part.name).contains("Jib") else 0)

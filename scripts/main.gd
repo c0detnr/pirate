@@ -6,7 +6,11 @@ var _wind_arrow: Label
 var _wind_label: Label
 var _prompt: Label
 var _spray: GPUParticles3D
+var day_night: Node
 const Appearance = preload("res://scripts/world_appearance.gd")
+const DayNight = preload("res://scripts/day_night.gd")
+const ShipLights = preload("res://scripts/ship_lights.gd")
+const Ambience = preload("res://scripts/ambience.gd")
 
 func _ready() -> void:
     Appearance.configure(self)
@@ -16,6 +20,12 @@ func _ready() -> void:
     Ocean.update_material(water_material)
     # The surface shares Ocean's zero waterline, including after grid recentering.
     $Sea.position = Vector3.ZERO
+    day_night = DayNight.new()
+    day_night.name = "DayNight"
+    add_child(day_night)
+    day_night.setup(self, water_material, _spray)
+    ShipLights.install($Ship, day_night)
+    Ambience.install(self, $Ship, $Player)
     _wind_label = _label(Vector2(24, 140), 18)
     _wind_arrow = _label(Vector2(89, 200), 36)
     _wind_arrow.text = "↑"
@@ -24,9 +34,9 @@ func _ready() -> void:
     _wind_arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _prompt = _label(Vector2.ZERO, 22)
     _prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-    _prompt.offset_left = -180
+    _prompt.offset_left = -280
     _prompt.offset_top = -80
-    _prompt.offset_right = 180
+    _prompt.offset_right = 280
     _prompt.offset_bottom = -40
     _prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
@@ -50,14 +60,29 @@ func _process(_delta: float) -> void:
     _wind_label.text = "RÜZGÂR · %d%%\nGeldiği yön / pruva ↑" % roundi(Wind.strength * 100.0)
     if $Player.at_helm:
         var turn := "İSKELE" if $Ship.rudder < -0.05 else ("SANCAK" if $Ship.rudder > 0.05 else "ORTA")
-        controls.text = "GEMİYİ SÜR\n%.1f knot  ·  Yelken %d/3  ·  Dümen %s %d%%\nA / D · Dümen    W / S · Yelken    E · Bırak\nFare · Bak    Esc · Fareyi bırak" % [$Ship.speed * 1.94384, $Ship.sail_level, turn, roundi(absf($Ship.rudder) * 100.0)]
-        _prompt.text = _crew_look_name()
+        controls.text = "GEMİYİ SÜR\n%.1f knot  ·  Yelken %d/3  ·  Dümen %s %d%%\nA / D · Dümen    W / S · Yelken    E · Bırak\nSol tık · Baktığın bordadan ateş    Fare · Bak    Esc · Fareyi bırak    N · Gece/Gündüz" % [$Ship.speed * 1.94384, $Ship.sail_level, turn, roundi(absf($Ship.rudder) * 100.0)]
+        var crew_name := _crew_look_name()
+        _prompt.text = crew_name if not crew_name.is_empty() else _broadside_prompt()
     else:
-        controls.text = "DENİZDE YÜRÜ\nWASD · Yürü    Shift · Koş    Space · Zıpla\nFare · Bak    Esc · Fareyi bırak    Sol tık · Kılıç / fareyi yakala"
-        _prompt.text = "E — Gemiye dön" if $Player.is_swimming() else ("E — Dümene geç" if $Player.can_use_helm() else "")
-
+        controls.text = "DENİZDE YÜRÜ\nWASD · Yürü    Shift · Koş    Space · Zıpla    N · Gece/Gündüz\nFare · Bak    Esc · Fareyi bırak    Sol tık · Kılıç / fareyi yakala"
+        _prompt.text = "E — Gemiye dön" if $Player.is_swimming() else ("E — Dümene geç" if $Player.can_use_helm() else _gun_prompt())
         if _prompt.text.is_empty():
             _prompt.text = _crew_look_name()
+
+func _broadside_prompt() -> String:
+    var side: int = $Player.helm_fire_side()
+    var side_name := "Sancak" if side > 0 else "İskele"
+    var loaded: int = $Ship.guns.ready_count(side)
+    if loaded == 0:
+        return "%s topları dolduruluyor…" % side_name
+    return "Sol tık — %s bordası ateş (%d/4)" % [side_name, loaded]
+
+func _gun_prompt() -> String:
+    var gun: int = $Player.aimed_gun()
+    if gun < 0:
+        return ""
+    var wait: float = $Ship.guns.reload_left(gun)
+    return "E — Topu ateşle" if wait <= 0.0 else "Top dolduruluyor… %d sn" % ceili(wait)
 
 func _crew_look_name() -> String:
     var camera: Camera3D = $Player/Camera3D

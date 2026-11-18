@@ -6,6 +6,7 @@ const SWIM_SPEED := 2.4
 const MOUSE_SENSITIVITY := 0.0024
 var _ship: AnimatableBody3D
 var _riding := false
+var _airborne_from_deck := false # Havadayken geminin hızını korur.
 var _ignore_next_motion := true
 var at_helm := false
 @onready var camera: Camera3D = $Camera3D
@@ -17,6 +18,7 @@ func _ready() -> void:
     platform_floor_layers = 0
     platform_wall_layers = 0
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+    preload("res://scripts/ink_post.gd").install(camera)
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel"):
@@ -25,6 +27,8 @@ func _unhandled_input(event: InputEvent) -> void:
         if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
             Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
             _ignore_next_motion = true
+        elif at_helm and _ship:
+            _ship.guns.fire_side(helm_fire_side())
         else:
             $WeaponViewmodel.request_attack()
     elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -43,6 +47,8 @@ func _unhandled_input(event: InputEvent) -> void:
             _riding = false
         elif can_use_helm():
             enter_helm()
+        elif aimed_gun() >= 0:
+            _ship.guns.fire(aimed_gun())
     if at_helm and not event.is_echo():
         if event.is_action_pressed("move_forward"):
             _ship.change_sail(1)
@@ -57,6 +63,14 @@ func can_use_helm() -> bool:
         return false
     var toward: Vector3 = _ship.get_helm_position() - camera.global_position
     return toward.length() <= 1.5 and (-camera.global_basis.z).dot(toward.normalized()) > 0.7
+
+func helm_fire_side() -> int:
+    return _ship.guns.side_toward(-camera.global_basis.z)
+
+func aimed_gun() -> int:
+    if not is_instance_valid(_ship) or at_helm or not _riding:
+        return -1
+    return _ship.guns.gun_in_view(camera)
 
 func enter_helm() -> void:
     at_helm = true
@@ -75,6 +89,12 @@ func _physics_process(delta: float) -> void:
     if (_riding or at_helm) and is_instance_valid(_ship):
         # Tam transform konumu taşır; kamera ufku düz kalır.
         global_position = _ship.frame_motion * global_position
+        rotate_y(_ship.frame_motion.basis.get_euler().y)
+    elif _airborne_from_deck and is_instance_valid(_ship):
+        # Yatay taşınma sürer; yüksekliği yalnızca zıplama ve yerçekimi belirler.
+        var height := global_position.y
+        global_position = _ship.frame_motion * global_position
+        global_position.y = height
         rotate_y(_ship.frame_motion.basis.get_euler().y)
     if at_helm:
         global_position = _ship.get_helm_stand_position()
@@ -108,10 +128,15 @@ func _physics_process(delta: float) -> void:
             if get_slide_collision(index).get_collider() == _ship:
                 _riding = true
                 break
+    if _riding or is_on_floor() or is_swimming():
+        _airborne_from_deck = false
+    elif was_riding:
+        _airborne_from_deck = true
     # Suppress capsule/floor solver creep for an idle passenger. Walking/jumping
     # still uses the real collider; only a continuously grounded idle pose locks.
     if was_riding and _riding and input.is_zero_approx() and not Input.is_action_just_pressed("jump"):
         global_position = carried_position
     if global_position.y < -12.0 and _ship:
+        _airborne_from_deck = false
         global_position = _ship.get_spawn_position()
         velocity = Vector3.ZERO

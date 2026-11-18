@@ -1,0 +1,21 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/island.glb" id="1"]
+[ext_resource type="Shader" path="res://shaders/toon_land.gdshader" id="2"]
+
+[sub_resource type="ShaderMaterial" id="LandMaterial"]
+shader = ExtResource("2")
+
+[sub_resource type="ShaderMaterial" id="FrondMaterial"]
+shader = ExtResource("2")
+shader_parameter/sway_amount = 1.0
+
+[node name="Island" type="Node3D"]
+
+[node name="Model" parent="." instance=ExtResource("1")]
+
+[node name="Land" parent="Model" index="0"]
+material_override = SubResource("LandMaterial")
+
+[node name="Fronds" parent="Model" index="1"]
+material_override = SubResource("FrondMaterial")

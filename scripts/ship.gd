@@ -4,7 +4,17 @@ const FORE_AFT_SAMPLE := 9.0
 const SIDE_SAMPLE := 2.8
 const SPAWN_LOCAL := Vector3(0.8, 2.6, 0.5)
 const MAX_SPEED := 7.0
-const ISLAND_CLEARANCE := 29.5 # 18 m kıyı + geminin çevre yarıçapı
+const ISLAND_CLEARANCE := 32.5 # 21 m kıyı + geminin çevre yarıçapı
+# Dönüş hissi: dümen hızlı tepki verir, ağır gövde onu gecikmeyle izler.
+const RUDDER_RATE := 0.8
+const RUDDER_RETURN_RATE := 0.55
+const MIN_YAW_RATE := 0.03 # rad/s, neredeyse dururken
+const MAX_YAW_RATE := 0.22 # rad/s, dümen suyu yeterince akarken
+const YAW_RESPONSE := 1.4 # büyüdükçe gövde dümene daha çabuk uyar
+const TURN_DRAG := 0.12 # tam dönüşte eklenen hız kaybı
+const TURN_SLIP := 0.35 # dönüşün dışına savrulma
+const TURN_HEEL := 0.1 # rad, tam hızda dönüşün dışına yatma
+const GunBattery = preload("res://scripts/ship_guns.gd")
 
 var frame_motion := Transform3D.IDENTITY
 var heading := 0.0
@@ -12,6 +22,10 @@ var speed := 0.0
 var sail_level := 0
 var rudder := 0.0
 var steering_input := 0.0
+var yaw_rate := 0.0 # + sancağa dönüş
+var hull_velocity := Vector3.ZERO
+var guns: Node3D
+var _gun_heel := 0.0
 var _waterline := 0.0
 var _helm_pivot: Node3D
 var _sails: Array[Dictionary] = []
@@ -23,6 +37,7 @@ func _ready() -> void:
 	_setup_collision()
 	preload("res://scripts/ship_appearance.gd").apply(self)
 	_setup_rigging()
+	guns = GunBattery.install(self)
 	heading = rotation.y
 	_waterline = global_position.y
 	add_to_group("ship")
@@ -53,14 +68,23 @@ func change_sail(steps: int) -> void:
 		var current: float = material.get_shader_parameter("furl")
 		_sail_tween.tween_method(func(value: float): material.set_shader_parameter("furl", value), current, target, 1.5)
 
+## Top geri tepmesi: side +1 sancak topu gemiyi iskeleye yatırır.
+func add_gun_recoil(side: int) -> void:
+	_gun_heel = clampf(_gun_heel + side * 0.008, -0.04, 0.04)
+
 func _physics_process(delta: float) -> void:
 	var before := global_transform
-	rudder = move_toward(rudder, clampf(steering_input, -1.0, 1.0), delta * (0.45 if steering_input != 0.0 else 0.25))
+	rudder = move_toward(rudder, clampf(steering_input, -1.0, 1.0), delta * (RUDDER_RATE if steering_input != 0.0 else RUDDER_RETURN_RATE))
+	var flow := clampf(speed / MAX_SPEED, 0.0, 1.0)
+	var target_yaw := rudder * lerpf(MIN_YAW_RATE, MAX_YAW_RATE, smoothstep(0.0, 0.7, flow))
+	yaw_rate = lerpf(yaw_rate, target_yaw, 1.0 - exp(-YAW_RESPONSE * delta))
+	var turn_amount := clampf(absf(yaw_rate) / MAX_YAW_RATE, 0.0, 1.0)
 	var thrust := float(sail_level) / 3.0 * clampf(Wind.strength, 0.0, 1.5) * sail_efficiency()
-	speed = clampf(speed + (0.7 * thrust - 0.1 * speed) * delta, 0.0, MAX_SPEED)
-	heading = wrapf(heading - rudder * (0.006 + speed * 0.022) * delta, -PI, PI)
+	speed = clampf(speed + (0.7 * thrust - (0.1 + TURN_DRAG * turn_amount) * speed) * delta, 0.0, MAX_SPEED)
+	heading = wrapf(heading - yaw_rate * delta, -PI, PI)
 	var yaw_basis := Basis(Vector3.UP, heading)
-	global_position += -yaw_basis.z * speed * delta
+	hull_velocity = -yaw_basis.z * speed - yaw_basis.x * yaw_rate * speed * TURN_SLIP
+	global_position += hull_velocity * delta
 	_avoid_island()
 	var center := global_position
 	var fore_pos := center - yaw_basis.z * FORE_AFT_SAMPLE
@@ -74,7 +98,9 @@ func _physics_process(delta: float) -> void:
 	var starboard := Ocean.get_wave_height(starboard_pos.x, starboard_pos.z, t)
 	var blend := 1.0 - exp(-3.0 * delta)
 	global_position.y = lerpf(global_position.y, _waterline + (fore + aft + port + starboard) * 0.25, blend)
+	_gun_heel = lerpf(_gun_heel, 0.0, 1.0 - exp(-1.6 * delta))
 	var heel := -sin(wind_relative_angle()) * thrust * deg_to_rad(4.0)
+	heel += yaw_rate / MAX_YAW_RATE * flow * TURN_HEEL + _gun_heel
 	rotation = Vector3(
 		lerp_angle(rotation.x, atan2(aft - fore, FORE_AFT_SAMPLE * 2.0), blend),
 		heading,

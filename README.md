@@ -37,8 +37,8 @@ godot --path .
 | **Shift** | Güvertede koş | — |
 | **Space** | Zıpla | — |
 | **Fare** | Etrafa bak | Etrafa bak |
-| **Sol tık** | Kılıç savur | — |
-| **E** | Dümene geç; sudayken gemiye dön | Dümeni bırak |
+| **Sol tık** | Kılıç savur | Baktığın bordadaki topları ateşle |
+| **E** | Dümene geç; baktığın topu ateşle; sudayken gemiye dön | Dümeni bırak |
 | **Esc** | Fareyi serbest bırak | Fareyi serbest bırak |
 
 Fare serbestken ilk sol tık yalnızca fareyi yeniden yakalar. Kılıç, yüzerken ve dümendeyken aşağı iner; bu durumlarda saldırı yapılamaz.
@@ -62,6 +62,8 @@ Gemi ağır hızlanır ve yavaşlar; hız sınırı **7 m/s**, yaklaşık **13,6
 - Ana güvertede dolaşan **Lostromo**, **Topçu** ve **Miço**. Oyuncu yaklaşınca durup ona dönerler; 3 metre içinden bakıldığında adları görünür.
 - Direklere, serenlere ve korkuluklara konan papağan. Gemiyle birlikte uçar, dümendeki oyuncuyla ilgilenir ve tünerken 1,5 metre yaklaşılınca ürker. 5 metre içinden bakıldığında adı görünür.
 - Yürüyüş ve fare hareketine tepki veren birinci şahıs kılıç görünümü. Savurma sırasında 2 metrelik ışın sorgusu, uygun hedefin `take_hit(damage, from)` metodunu bir kez çağırır; hasar değeri 25'tir.
+- Her bordada dört top: dümenden tüm borda, güvertede tek tek ateşlenir. Toplar 7 saniyede dolar; gülleler balistik uçar, suya veya adaya düşer ve `hittable` hedeflerde `take_hit(100, gemi)` çağırır.
+- Kodla üretilen, rüzgâr gücüne ve gemi hızına tepki veren rüzgâr, deniz ve gövde suyu sesleri.
 - Dünya koordinatlarında hesaplanan dalgalar, stilize su ve gökyüzü, gemi konturları ve su sıçraması efektleri.
 
 ## Prototipin sınırları
@@ -78,6 +80,7 @@ godot --headless --path . --quit-after 180
 godot --headless --path . --fixed-fps 60 --script tests/ship_physics_smoke.gd
 godot --headless --path . --fixed-fps 60 --script tests/crew_weapon_smoke.gd
 godot --headless --path . --fixed-fps 60 --script tests/parrot_smoke.gd
+godot --headless --path . --fixed-fps 60 --script tests/cannon_smoke.gd
 ```
 
 | Kontrol | Kapsam |
@@ -85,6 +88,7 @@ godot --headless --path . --fixed-fps 60 --script tests/parrot_smoke.gd
 | Ana sahne | Sahnenin başsız ortamda açılması ve 180 kare çalışması |
 | `ship_physics_smoke.gd` | Gerçek gemi çarpışması ve oyuncu; rampalar, küpeşteler, yüzme/dönüş, yolcu kayması, rüzgâr, hız, dümen, yelkenler, kıyı ve uzak deniz takibi |
 | `crew_weapon_smoke.gd` | Tayfa yön çizimleri ve güverte sınırları, oyuncuya dönme, isim istemi, kılıç durumları, tek vuruş ve saldırı engelleri |
+| `cannon_smoke.gd` | Dönüş ataleti, yatma ve hız kaybı; borda ve tek top ateşi, dolum süresi, gülle uçuşu ve vuruş arayüzü |
 | `parrot_smoke.gd` | Kanat döngüsü ve yön seçimi, 60 saniyelik seyirde uçuş sınırları, konma/kalkma, ürkme ve isim istemi |
 
 Smoke testleri `failures=0` ve çıkış kodu `0` ile tamamlanmalıdır. Başsız sürücü işletim sistemi faresini yakalayamaz; kılıç testinde fare yakalama tıkının saldırı başlatmadığı kontrol edilir, saldırı döngüsü doğrudan metot çağrısıyla sınanır.

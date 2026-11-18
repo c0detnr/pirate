@@ -4,6 +4,7 @@ extends Node3D
 @export var display_name := "Lostromo"
 @export var body_height := 1.9
 @export var patrol := PackedVector3Array([Vector3(-1.0, 1.6, 0.2), Vector3(-1.0, 1.6, 2.7)])
+const InkPostScript = preload("res://scripts/ink_post.gd")
 @onready var sprite: Sprite3D = $Sprite3D
 var _textures: Dictionary = {}
 var _player: Node3D
@@ -14,7 +15,15 @@ var _clock := 0.0
 var _facing := Vector3.FORWARD
 var _walking := false
 var _sun: DirectionalLight3D
+var _material: ShaderMaterial
+var _night_tint := InkPostScript.NIGHT_COOL
+var _target_tint := InkPostScript.NIGHT_COOL
+var _tint_clock := 0.0
+var _lantern_clock := 0.0
+var _lanterns: Array[OmniLight3D] = []
 const SPEED := 0.42
+const TINT_REFRESH := 0.2
+const LANTERN_REFRESH := 1.5
 
 # Positive angle means the camera sees the right profile. Angles are radians.
 static func select_view(angle: float) -> Dictionary:
@@ -37,15 +46,18 @@ func _ready() -> void:
     _sun = get_tree().current_scene.get_node_or_null("Sun") as DirectionalLight3D if get_tree().current_scene != null else get_parent().get_parent().get_node_or_null("Sun") as DirectionalLight3D
     # Art keeps its ink; directional pigment tint is limited to 15%. Sprite fog stays enabled.
     sprite.shaded = false
+    # The shared billboard shader follows the global night_amount.
+    _material = ShaderMaterial.new()
+    _material.shader = preload("res://shaders/parrot_billboard.gdshader")
+    _material.set_shader_parameter("upright", true)
+    _material.set_shader_parameter("art", sprite.texture)
+    sprite.material_override = _material
+    _tint_clock = randf() * TINT_REFRESH
     _make_shadow()
 
 func _physics_process(delta: float) -> void:
     _clock += delta
-    if is_instance_valid(_sun):
-        var facing_world: Vector3 = get_parent().global_basis * _facing
-        var sunlight := clampf(facing_world.dot(_sun.global_basis.z), 0.0, 1.0)
-        var shade := lerpf(0.85, 1.0, sunlight)
-        sprite.modulate = Color(shade, shade * 0.98, shade * 0.95, 1.0)
+    _update_tint(delta)
     if not is_instance_valid(_player):
         _player = get_tree().get_first_node_in_group("player") as Node3D
     _walking = false
@@ -85,8 +97,28 @@ func _physics_process(delta: float) -> void:
         var angle := atan2(_facing.cross(camera_direction).y, _facing.dot(camera_direction))
         # FORWARD (-Z) cross RIGHT (+X) is -Y: negate to select the right profile.
         var view := select_view(-angle)
-        sprite.texture = _textures[view.view]
+        if sprite.texture != _textures[view.view]:
+            sprite.texture = _textures[view.view]
+            _material.set_shader_parameter("art", sprite.texture)
         sprite.flip_h = view.flip_h
+
+func _update_tint(delta: float) -> void:
+    var shade := 1.0
+    if is_instance_valid(_sun):
+        var facing_world: Vector3 = get_parent().global_basis * _facing
+        shade = lerpf(0.85, 1.0, clampf(facing_world.dot(_sun.global_basis.z), 0.0, 1.0))
+    _material.set_shader_parameter("day_tint", Vector3(shade, shade * 0.98, shade * 0.95))
+    # Lantern warmth moves slowly, so it is sampled a few times per second.
+    _tint_clock -= delta
+    if _tint_clock <= 0.0:
+        _tint_clock = TINT_REFRESH
+        _lantern_clock -= TINT_REFRESH
+        if _lantern_clock <= 0.0:
+            _lantern_clock = LANTERN_REFRESH
+            _lanterns.assign(get_parent().find_children("*", "OmniLight3D", true, false))
+        _target_tint = InkPostScript.night_sprite_tint(sprite.global_position + Vector3.UP * body_height * 0.5, _lanterns)
+    _night_tint = _night_tint.lerp(_target_tint, 1.0 - exp(-6.0 * delta))
+    _material.set_shader_parameter("night_tint", Vector3(_night_tint.r, _night_tint.g, _night_tint.b))
 
 func _make_shadow() -> void:
     var shadow := MeshInstance3D.new()

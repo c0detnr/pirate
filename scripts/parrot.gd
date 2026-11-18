@@ -29,6 +29,10 @@ var _bank := 0.0
 var _landing: Dictionary
 var _curve: Array[Vector3] = []
 var _duration := 1.0
+var _lantern_clock := 0.0
+var _lantern_scan := 0
+var _lanterns: Array[OmniLight3D] = []
+const InkPostScript = preload("res://scripts/ink_post.gd")
 
 static func select_flip(motion: Vector3, camera_right: Vector3, previous: bool) -> bool:
     if motion.length_squared() < 0.01:
@@ -180,6 +184,7 @@ func _update_art(delta: float, previous_velocity: Vector3) -> void:
     else:
         _bank = lerpf(_bank, 0.0, 1.0 - exp(-8.0 * delta))
     _material.set_shader_parameter("bank", _bank)
+    _update_night_tint(delta)
     sprite.scale.y = 1.0 + sin(_clock * 2.4) * 0.008 if state == State.PERCH else 1.0
     _glide_wait -= delta
     _glide = maxf(0.0, _glide - delta)
@@ -193,3 +198,15 @@ func _update_art(delta: float, previous_velocity: Vector3) -> void:
     elif state == State.APPROACH or velocity.y < -0.8 or (_glide > 0.0 and velocity.y < 0.8):
         index = 3
     _set_art(index)
+
+func _update_night_tint(delta: float) -> void:
+    _lantern_clock -= delta
+    if _lantern_clock > 0.0:
+        return
+    _lantern_clock = 0.25
+    _lantern_scan -= 1
+    if _lantern_scan <= 0:
+        _lantern_scan = 6
+        _lanterns.assign(get_parent().find_children("*", "OmniLight3D", true, false))
+    var tint := InkPostScript.night_sprite_tint(global_position, _lanterns)
+    _material.set_shader_parameter("night_tint", Vector3(tint.r, tint.g, tint.b))
